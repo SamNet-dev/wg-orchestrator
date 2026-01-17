@@ -6487,6 +6487,7 @@ screen_firewall_ports() {
                 firewall_mode="samnet"
             fi
         fi
+        
         local vpn_port=$(db_get_config "listen_port")
         vpn_port="${vpn_port:-51820}"
         
@@ -6494,91 +6495,91 @@ screen_firewall_ports() {
         case "$firewall_mode" in
             samnet)
                 printf "  ${T_GREEN}●${T_RESET} Mode: ${T_BOLD}SamNet Managed${T_RESET}\n"
-                printf "  ${T_DIM}Open ports are controlled by this TUI. Don't use UFW/iptables.${T_RESET}\n\n"
+                printf "  ${T_DIM}Open ports are controlled by this TUI.${T_RESET}\n\n"
                 ;;
             external)
                 printf "  ${T_YELLOW}●${T_RESET} Mode: ${T_BOLD}External Firewall${T_RESET}\n"
-                printf "  ${T_DIM}Ports are managed by UFW/iptables. SamNet only handles VPN routing.${T_RESET}\n\n"
-                printf "  ${T_YELLOW}To manage ports, use your external firewall tool.${T_RESET}\n\n"
-                menu_option "V" "View Rules" "Show all active firewall rules"
-                menu_option "M" "Change Mode" "Switch to SamNet-managed"
-                menu_option "B" "Back" ""
-                ui_draw_footer "[V] View Rules  [M] Change Mode  [B] Back"
-                printf "\n${T_CYAN}❯${T_RESET} "
-                local key=$(read_key)
-                case "$key" in
-                    v|V) show_firewall_rules_table ;;
-                    m|M) run_firewall_mode_wizard ;;
-                    b|B|$'\x1b') return ;;
-                esac
-                continue
+                printf "  ${T_DIM}Ports managed by external firewall. Showing best-effort status.${T_RESET}\n\n"
                 ;;
             none)
                 printf "  ${T_RED}●${T_RESET} Mode: ${T_BOLD}No Firewall${T_RESET}\n"
                 printf "  ${T_DIM}All ports are open. Use with caution!${T_RESET}\n\n"
-                menu_option "V" "View Rules" "Show all active firewall rules"
-                menu_option "M" "Change Mode" "Enable firewall protection"
-                menu_option "B" "Back" ""
-                ui_draw_footer "[V] View Rules  [M] Change Mode  [B] Back"
-                printf "\n${T_CYAN}❯${T_RESET} "
-                local key=$(read_key)
-                case "$key" in
-                    v|V) show_firewall_rules_table ;;
-                    m|M) run_firewall_mode_wizard ;;
-                    b|B|$'\x1b') return ;;
-                esac
-                continue
                 ;;
         esac
         
-        # List open ports
+        # List open ports (Unified View)
         printf "  ${T_BOLD}Open Ports:${T_RESET}\n"
         printf "  ${T_DIM}────────────────────────────────────────────${T_RESET}\n"
         
-        if nft list table inet samnet-ports &>/dev/null; then
-            local port_num=1
-            nft list chain inet samnet-ports input 2>/dev/null | grep -E "(tcp|udp) dport" | while read line; do
-                local proto=$(echo "$line" | grep -oP '(tcp|udp)')
-                local port=$(echo "$line" | grep -oP 'dport \K[0-9]+')
-                local comment=$(echo "$line" | grep -oP 'comment "\K[^"]+' || echo "")
-                
-                local status="${T_GREEN}[OPEN]${T_RESET}"
-                local locked=""
-                
-                # Mark VPN port as locked
-                if [[ "$port" == "$vpn_port" && "$proto" == "udp" ]]; then
-                    status="${T_CYAN}[VPN]${T_RESET}"
-                    locked=" ${T_DIM}(locked)${T_RESET}"
-                fi
-                
-                # Format nicely
-                printf "  ${T_CYAN}%2d.${T_RESET} %-6s %-5s %-20s %s%s\n" \
-                    "$port_num" "$port" "$proto" "${comment:-user-defined}" "$status" "$locked"
-                ((port_num++))
-            done
+        # Branch based on mode for listing
+        if [[ "$firewall_mode" == "samnet" ]]; then
+            # SamNet Managed: Clean table view
+            if nft list table inet samnet-ports &>/dev/null; then
+                local port_num=1
+                nft list chain inet samnet-ports input 2>/dev/null | grep -E "(tcp|udp) dport" | while read line; do
+                    local proto=$(echo "$line" | grep -oP '(tcp|udp)')
+                    local port=$(echo "$line" | grep -oP 'dport \K[0-9]+')
+                    local comment=$(echo "$line" | grep -oP 'comment "\K[^"]+' || echo "")
+                    
+                    local status="${T_GREEN}[OPEN]${T_RESET}"
+                    local locked=""
+                    
+                    # Mark VPN port as locked
+                    if [[ "$port" == "$vpn_port" && "$proto" == "udp" ]]; then
+                        status="${T_CYAN}[VPN]${T_RESET}"
+                        locked=" ${T_DIM}(locked)${T_RESET}"
+                    fi
+                    
+                    printf "  ${T_CYAN}%2d.${T_RESET} %-6s %-5s %-20s %s%s\n" \
+                        "$port_num" "$port" "$proto" "${comment:-user-defined}" "$status" "$locked"
+                    ((port_num++))
+                done
+            else
+                printf "  ${T_DIM}No ports table found. Run install/repair.${T_RESET}\n"
+            fi
+        
+        elif [[ "$firewall_mode" == "external" ]]; then
+            # External: Try to show UFW or basic info
+            if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
+                ufw status numbered 2>/dev/null | head -n 10 | awk '{print "  " $0}'
+                echo "  ..."
+            else
+                printf "  ${T_DIM}Cannot list external rules. Check your firewall tool.${T_RESET}\n"
+            fi
+            
         else
-            printf "  ${T_DIM}No ports table found. Run install first.${T_RESET}\n"
+            # None
+            printf "  ${T_RED}FIREWALL DISABLED - ALL PORTS OPEN${T_RESET}\n"
         fi
         
         printf "\n"
         menu_option "V" "View Rules" "Show all active firewall rules"
-        menu_option "A" "Add Port" "Open a new port"
-        menu_option "R" "Remove Port" "Close a port"
-        menu_option "P" "Presets" "Quick port templates"
+        
+        # Only show edit options if SamNet managed
+        if [[ "$firewall_mode" == "samnet" ]]; then
+            menu_option "A" "Add Port" "Open a new port"
+            menu_option "R" "Remove Port" "Close a port"
+            menu_option "P" "Presets" "Quick port templates"
+            ui_draw_footer "[V]iew  [A]dd  [R]emove  [P]resets  [M]ode  [B]ack"
+        else
+            printf "  ${T_DIM}(Editing disabled in $firewall_mode mode)${T_RESET}\n"
+            ui_draw_footer "[V]iew Rules  [M]ode  [B]ack"
+        fi
+        
         menu_option "M" "Change Mode" "Switch firewall mode"
         menu_option "B" "Back" ""
         
-        ui_draw_footer "[V]iew  [A]dd  [R]emove  [P]resets  [M]ode  [B]ack"
         printf "\n${T_CYAN}❯${T_RESET} "
         
         local key=$(read_key)
         case "$key" in
             v|V) show_firewall_rules_table ;;
-            a|A) firewall_add_port_wizard ;;
-            r|R) firewall_remove_port_wizard ;;
-            p|P) firewall_presets_menu ;;
             m|M) run_firewall_mode_wizard ;;
             b|B|$'\x1b') return ;;
+            # Only allow edits in samnet mode
+            a|A) [[ "$firewall_mode" == "samnet" ]] && firewall_add_port_wizard ;;
+            r|R) [[ "$firewall_mode" == "samnet" ]] && firewall_remove_port_wizard ;;
+            p|P) [[ "$firewall_mode" == "samnet" ]] && firewall_presets_menu ;;
         esac
     done
 }
@@ -6590,7 +6591,11 @@ firewall_add_port_wizard() {
     
     # Port number
     printf "  Port number (1-65535): "
+    ui_show_cursor
+    stty echo
     read -r port_input
+    stty -echo
+    ui_hide_cursor
     
     if ! [[ "$port_input" =~ ^[0-9]+$ ]] || [[ "$port_input" -lt 1 ]] || [[ "$port_input" -gt 65535 ]]; then
         log_error "Invalid port number"
@@ -6600,7 +6605,11 @@ firewall_add_port_wizard() {
     
     # Protocol
     printf "  Protocol [tcp/udp] (default: tcp): "
+    ui_show_cursor
+    stty echo
     read -r proto_input
+    stty -echo
+    ui_hide_cursor
     proto_input="${proto_input:-tcp}"
     
     if [[ "$proto_input" != "tcp" && "$proto_input" != "udp" ]]; then
@@ -6611,7 +6620,11 @@ firewall_add_port_wizard() {
     
     # Label
     printf "  Label (optional, e.g., 'web-server'): "
+    ui_show_cursor
+    stty echo
     read -r label_input
+    stty -echo
+    ui_hide_cursor
     label_input="${label_input:-user-defined}"
     
     # Confirm
