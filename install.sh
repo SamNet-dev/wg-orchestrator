@@ -207,7 +207,7 @@ echo ""
 if [[ "$ZERO_TOUCH" == "true" ]]; then
     echo -e "${CYAN}Starting zero-touch installation...${RESET}"
     echo ""
-    exec "$INSTALL_DIR/samnet.sh" --zero-touch
+    exec "$INSTALL_DIR/samnet.sh" --zero-touch </dev/tty
 else
     echo -e "${CYAN}Launching interactive setup...${RESET}"
     echo -e "You'll be guided through:"
@@ -219,5 +219,6 @@ else
     echo -e "${BOLD}Press Enter to continue...${RESET}"
     # Read from /dev/tty to work even when script is piped
     read -r < /dev/tty 2>/dev/null || true
-    exec "$INSTALL_DIR/samnet.sh"
+    # Launch with stdin from tty so TUI can receive keyboard input
+    exec "$INSTALL_DIR/samnet.sh" </dev/tty
 fi
