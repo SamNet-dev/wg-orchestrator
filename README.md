@@ -12,7 +12,7 @@
 ║                      Z E R O - T O U C H   W I R E G U A R D                          ║
 ║                        V P N   O R C H E S T R A T O R                                ║
 ║                                                                                       ║
-║                             [ v1.0.3 - samnet-wg ]                                    ║
+║                             [ v1.0.4 - samnet-wg ]                                    ║
 ║                                                                                       ║
 ╚═══════════════════════════════════════════════════════════════════════════════════════╝
 </pre>
@@ -20,7 +20,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://github.com/SamNet-dev/wg-orchestrator)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/SamNet-dev/wg-orchestrator)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)]()
 [![WireGuard](https://img.shields.io/badge/WireGuard-Enabled-purple.svg)]()
@@ -93,7 +93,19 @@ Unlike standard scripts, SamNet-WG includes a **bi-directional sync engine**, en
 
 ## 🚀 Quick Start
 
-### Quick Install
+### One-Line Install (Recommended)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/SamNet-dev/wg-orchestrator/main/install.sh | sudo bash
+```
+
+This downloads SamNet-WG and launches the interactive setup wizard where you can:
+- Configure your VPN subnet
+- Choose Web UI or CLI-only mode  
+- Set up firewall rules
+- Create your first peer
+
+### Manual Install
 
 ```bash
 git clone https://github.com/SamNet-dev/wg-orchestrator.git
@@ -101,7 +113,11 @@ cd wg-orchestrator
 sudo ./samnet.sh
 ```
 
-The installer will guide you through setup (CLI-only or Web UI mode).
+### Zero-Touch Install (Scripted/Automated)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/SamNet-dev/wg-orchestrator/main/install.sh | sudo bash -s -- --zero-touch
+```
 
 **Web UI Default Login:** `admin` / `changeme`
 
@@ -142,6 +158,9 @@ sudo samnet → Observability → Traffic Stats
 
 # Uninstall securely
 sudo samnet --uninstall
+
+# Update to latest version
+sudo samnet --update
 ```
 
 ---
@@ -213,13 +232,19 @@ We believe in full system transparency. Here is exactly where SamNet-WG stores i
 
 ## 🗺️ Roadmap
 
-Coming in the next 1-2 weeks:
+### ✅ Recently Shipped (v1.0.4)
 
 | Feature | Description |
 |---------|-------------|
-| 🚀 **One-Line Install** | `curl -sSL https://... \| bash` for instant deployment |
+| 🚀 **One-Line Install** | `curl -sSL ... \| bash` for instant deployment |
 | 🔄 **Auto-Update** | `samnet --update` to upgrade without reinstalling |
 
+### Coming Soon
+
+| Feature | Description |
+|---------|-------------|
+| 📊 **Usage Analytics** | Per-peer bandwidth graphs and historical data |
+| 🌍 **Multi-Server** | Manage multiple WireGuard servers from one dashboard |
 
 Stay tuned for updates!
 

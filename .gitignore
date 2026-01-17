@@ -1,0 +1,56 @@
+# Compiled / Build
+*.o
+*.a
+*.so
+*.exe
+*.dll
+__pycache__/
+*.py[cod]
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node.js (UI)
+services/ui/node_modules/
+services/ui/dist/
+services/ui/.vite/
+
+# Go
+services/api/samnet-api
+*.test
+
+# Docker
+*.log
+
+# Local development
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Secrets (never commit!)
+*.key
+*.pem
+*.crt
+master.key
+credentials.txt
+
+# Temp files
+*.tmp
+*.bak
+*.backup
+/tmp/
+
+# Test artifacts
+tests/stress/results/
+coverage/
+
+# Runtime data (created at install, never commit)
+clients/

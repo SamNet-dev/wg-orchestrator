@@ -21,7 +21,7 @@ export LC_ALL=C.UTF-8
 # 1. GLOBAL CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-readonly SAMNET_VERSION="1.0.3"
+readonly SAMNET_VERSION="1.0.4"
 readonly APP_NAME="SamNet-WG"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -70,6 +70,12 @@ readonly WG_CONF="/etc/wireguard/wg0.conf"
 readonly TRIGGER_FILE="/var/lib/samnet-wg/reconcile.trigger"
 readonly INSTALL_DIR="/opt/samnet"
 readonly CRED_FILE="/root/.samnet-wg_initial_credentials"
+
+# Update System
+readonly REPO_URL="https://github.com/SamNet-dev/wg-orchestrator.git"
+readonly UPDATE_BRANCH="${SAMNET_BRANCH:-main}"
+# Note: REMOTE_VERSION_URL must be set after UPDATE_BRANCH is defined
+REMOTE_VERSION_URL="https://raw.githubusercontent.com/SamNet-dev/wg-orchestrator/${UPDATE_BRANCH}/samnet.sh"
 
 # State
 NOCOLOR=false
@@ -737,6 +743,14 @@ HELP_BANNER
         printf "    ${T_WHITE}────────────────────────────────────────────────────────${T_RESET}\n"
         printf "    ${T_WHITE}51820/UDP${T_RESET}          WireGuard VPN traffic\n"
         printf "    ${T_WHITE}80/TCP${T_RESET}             Web UI (optional, if enabled)\n\n"
+        
+        printf "    ${T_CYAN}${T_BOLD}COMMAND LINE${T_RESET}\n"
+        printf "    ${T_WHITE}────────────────────────────────────────────────────────${T_RESET}\n"
+        printf "    ${T_WHITE}samnet${T_RESET}             Launch interactive TUI\n"
+        printf "    ${T_WHITE}samnet --update${T_RESET}    Check for and apply updates\n"
+        printf "    ${T_WHITE}samnet --status${T_RESET}    Show system status\n"
+        printf "    ${T_WHITE}samnet -z${T_RESET}          Zero-touch install\n"
+        printf "    ${T_WHITE}samnet --uninstall${T_RESET} Remove SamNet-WG\n\n"
         
         ui_draw_footer "[B] Back"
         
@@ -1626,6 +1640,201 @@ get_firewall_backend() {
 get_cpu_usage() { top -bn1 2>/dev/null | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 || echo "N/A"; }
 get_mem_usage() { free 2>/dev/null | awk '/Mem:/ {printf "%.0f%%", $3/$2 * 100}' || echo "N/A"; }
 get_disk_usage() { df -h / 2>/dev/null | awk 'NR==2 {print $5}' || echo "N/A"; }
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5.5 AUTO-UPDATE SYSTEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+get_remote_version() {
+    # Fetch just the version line from remote script (timeout 10s)
+    # Streams through grep to avoid loading entire file into memory
+    curl -sSL --max-time 10 "$REMOTE_VERSION_URL" 2>/dev/null | \
+        grep -m1 'readonly SAMNET_VERSION=' | cut -d'"' -f2
+}
+
+version_compare() {
+    # Returns: 0 if $1 > $2, 1 if equal, 2 if $1 < $2
+    # Handles versions like 1.0.4, 1.0.4-beta, 1.2.3.4
+    local v1="$1" v2="$2"
+    
+    # Strip any suffix after hyphen for comparison (e.g., 1.0.4-beta -> 1.0.4)
+    v1="${v1%%-*}"
+    v2="${v2%%-*}"
+    
+    [[ "$v1" == "$v2" ]] && return 1
+    
+    local IFS=.
+    local i v1_arr=($v1) v2_arr=($v2)
+    
+    for ((i=0; i<${#v1_arr[@]}; i++)); do
+        # Extract only numeric part from each component
+        local n1="${v1_arr[i]%%[^0-9]*}"
+        local n2="${v2_arr[i]%%[^0-9]*}"
+        [[ -z "$n1" ]] && n1=0
+        [[ -z "$n2" ]] && n2=0
+        
+        [[ -z "${v2_arr[i]:-}" ]] && return 0
+        ((10#$n1 > 10#$n2)) && return 0
+        ((10#$n1 < 10#$n2)) && return 2
+    done
+    
+    [[ ${#v1_arr[@]} -lt ${#v2_arr[@]} ]] && return 2
+    return 1
+}
+
+do_update() {
+    ui_clear
+    ui_draw_header_mini "System Update"
+    
+    log_info "Checking for updates..."
+    
+    # Cleanup trap for interrupted updates
+    trap 'rm -f "$INSTALL_DIR/samnet.sh.new" 2>/dev/null' RETURN
+    
+    # Check internet connectivity
+    if ! curl -s --max-time 5 https://github.com &>/dev/null; then
+        log_error "Cannot reach GitHub. Check your internet connection."
+        wait_key
+        return 1
+    fi
+    
+    local remote_version
+    remote_version=$(get_remote_version)
+    
+    if [[ -z "$remote_version" ]]; then
+        log_error "Failed to fetch remote version."
+        wait_key
+        return 1
+    fi
+    
+    echo ""
+    echo "  Current version: ${T_CYAN}v${SAMNET_VERSION}${T_RESET}"
+    echo "  Latest version:  ${T_GREEN}v${remote_version}${T_RESET}"
+    echo ""
+    
+    version_compare "$remote_version" "$SAMNET_VERSION"
+    local cmp=$?
+    
+    if [[ $cmp -eq 1 ]]; then
+        log_success "You are running the latest version!"
+        wait_key
+        return 0
+    elif [[ $cmp -eq 2 ]]; then
+        log_warn "Local version is newer than remote (dev build?)"
+        wait_key
+        return 0
+    fi
+    
+    # Update available
+    log_info "Update available: v${SAMNET_VERSION} → v${remote_version}"
+    echo ""
+    echo "  ${T_DIM}Your data will be preserved:${T_RESET}"
+    echo "  ${T_DIM}  ✓ WireGuard configs  ✓ Peers & clients${T_RESET}"
+    echo "  ${T_DIM}  ✓ Database settings  ✓ Firewall rules${T_RESET}"
+    echo ""
+    
+    if ! ui_confirm "Apply update now?"; then
+        log_info "Update cancelled."
+        wait_key
+        return 0
+    fi
+    
+    log_step "Creating backup..."
+    local backup_script="/tmp/samnet-backup-$(date +%s).sh"
+    cp "$INSTALL_DIR/samnet.sh" "$backup_script" 2>/dev/null || true
+    
+    log_step "Downloading update..."
+    
+    # Method 1: Git pull (preferred if .git exists)
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
+        cd "$INSTALL_DIR"
+        if git fetch origin "$UPDATE_BRANCH" --quiet 2>/dev/null && \
+           git reset --hard "origin/$UPDATE_BRANCH" --quiet 2>/dev/null; then
+            log_success "Update downloaded via git!"
+        else
+            log_warn "Git update failed. Trying direct download..."
+            # Fall through to curl method
+            cd /
+        fi
+    fi
+    
+    # Method 2: Direct download (fallback)
+    if [[ ! -d "$INSTALL_DIR/.git" ]] || [[ "$(pwd)" == "/" ]]; then
+        # Ensure install directory exists
+        if [[ ! -d "$INSTALL_DIR" ]]; then
+            mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+                log_error "Cannot create $INSTALL_DIR. Check permissions."
+                wait_key
+                return 1
+            }
+        fi
+        
+        if curl -sSL "$REMOTE_VERSION_URL" -o "$INSTALL_DIR/samnet.sh.new" 2>/dev/null; then
+            # Verify syntax before replacing
+            if bash -n "$INSTALL_DIR/samnet.sh.new" 2>/dev/null; then
+                if mv "$INSTALL_DIR/samnet.sh.new" "$INSTALL_DIR/samnet.sh" 2>/dev/null; then
+                    chmod +x "$INSTALL_DIR/samnet.sh" || true
+                    log_success "Update downloaded!"
+                else
+                    log_error "Failed to install update (permission denied?)."
+                    rm -f "$INSTALL_DIR/samnet.sh.new"
+                    [[ -f "$backup_script" ]] && cp "$backup_script" "$INSTALL_DIR/samnet.sh"
+                    wait_key
+                    return 1
+                fi
+            else
+                log_error "Downloaded script has syntax errors. Aborting."
+                rm -f "$INSTALL_DIR/samnet.sh.new"
+                [[ -f "$backup_script" ]] && cp "$backup_script" "$INSTALL_DIR/samnet.sh"
+                wait_key
+                return 1
+            fi
+        else
+            log_error "Download failed."
+            wait_key
+            return 1
+        fi
+    fi
+    
+    # Rebuild Docker containers if needed
+    log_step "Checking Docker containers..."
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qE "samnet(-wg)?-api"; then
+        echo ""
+        if ui_confirm "Rebuild Docker containers with new code?"; then
+            log_info "Rebuilding containers (this may take a minute)..."
+            rebuild_docker 2>/dev/null || log_warn "Docker rebuild had issues. Check manually."
+        fi
+    fi
+    
+    log_success "Update complete!"
+    echo ""
+    echo "  ${T_GREEN}Updated to v${remote_version}${T_RESET}"
+    echo ""
+    echo "  ${T_DIM}Backup saved: $backup_script${T_RESET}"
+    echo "  ${T_DIM}(Delete after confirming update works)${T_RESET}"
+    echo ""
+    echo "  Restarting SamNet..."
+    sleep 2
+    
+    # Re-exec the new script
+    exec "$INSTALL_DIR/samnet.sh"
+}
+
+check_for_updates_silent() {
+    # Background check for updates (non-blocking)
+    # Called on TUI startup, shows notification if update available
+    local remote_version
+    remote_version=$(get_remote_version 2>/dev/null) || return 0
+    
+    [[ -z "$remote_version" ]] && return 0
+    
+    version_compare "$remote_version" "$SAMNET_VERSION"
+    if [[ $? -eq 0 ]]; then
+        echo "  ${T_YELLOW}●${T_RESET} Update        ${T_YELLOW}v${remote_version} available (run: samnet --update)${T_RESET}"
+        return 0
+    fi
+    return 1
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. CORE INFRASTRUCTURE ENGINE
@@ -8003,6 +8212,8 @@ main() {
             --status) print_status; exit 0 ;;
             --uninstall) init_colors; check_root; full_uninstall; exit 0 ;;
             --rebuild) init_colors; check_root; rebuild_docker; exit 0 ;;
+            --update) init_colors; check_root; do_update; exit 0 ;;
+            --check-update) init_colors; v=$(get_remote_version) && echo "Remote: v$v | Local: v$SAMNET_VERSION" || echo "Failed to check"; exit 0 ;;
             --init-bandwidth) init_colors; check_root; echo "Bandwidth now managed by API"; exit 0 ;;
             check_expiry|--check-expiry) init_colors; check_root; check_expiry; check_limits; exit 0 ;;
             *) echo "Unknown: $1"; exit 1 ;;
@@ -8060,6 +8271,18 @@ main() {
     else
         echo "  ${T_DIM}●${T_RESET} API          ${T_DIM}not deployed${T_RESET}"
     fi
+    
+    # Check for updates (non-blocking, max 2s timeout)
+    check_for_updates_silent 2>/dev/null &
+    local update_pid=$!
+    local waited=0
+    while kill -0 $update_pid 2>/dev/null && [[ $waited -lt 4 ]]; do
+        sleep 0.5
+        ((waited++))
+    done
+    # Kill if still running after timeout
+    kill $update_pid 2>/dev/null || true
+    wait $update_pid 2>/dev/null || true
     
     echo ""
     echo "${T_DIM}Press any key to continue...${T_RESET}"
