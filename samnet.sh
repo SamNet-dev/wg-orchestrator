@@ -2998,10 +2998,14 @@ do_install() {
     apply_firewall
     
     # Deploy Docker stack (API/DB are now core dependencies for headless mode)
+    # Deploy Docker stack (API/DB are now core dependencies for headless mode)
     if [[ -d "$DIR/services" ]]; then
         INSTALL_STAGE="docker"
         log_info "Deploying Backend Stack (Headless)..."
-        cp -r "$DIR/services" "$INSTALL_DIR/"
+        # Only copy if source and destination are different
+        if [[ "$(realpath "$DIR/services")" != "$(realpath "$INSTALL_DIR/services")" ]]; then
+            cp -r "$DIR/services" "$INSTALL_DIR/"
+        fi
         
         # Create database directory for API container (user 1000:1000 = samnet)
         log_info "Setting up database directory..."
