@@ -172,24 +172,24 @@ sudo samnet --update
 │                              SamNet-WG                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
-│  │   samnet.sh  │◄──►│   API (Go)   │◄──►│  UI (React)  │             │
-│  │   CLI / TUI  │    │  Port 8766   │    │  Port 8080   │             │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘             │
-│         │                   │                   │                     │
-│         └─────────┬─────────┼───────────────────┘                     │
-│                   │         │ (Sync Engine)                           │
-│          ┌────────▼─────────▼────────┐                                │
-│          │    State (SQLite + FS)    │                                │
-│          │  /var/lib/samnet-wg/      │                                │
-│          │  /opt/samnet/clients/     │                                │
-│          └────────┬──────────────────┘                                │
-│                   │                                                   │
-│          ┌────────▼────────┐                                          │
-│          │   WireGuard     │                                          │
-│          │   Kernel Mod    │                                          │
-│          └─────────────────┘                                          │
-│                                                                       │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐               │
+│  │   samnet.sh  │◄──►│   API (Go)   │◄──►│  UI (React)  │               │
+│  │   CLI / TUI  │    │  Port 8766   │    │  Port 8080   │               │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘               │
+│         │                   │                   │                       │
+│         └─────────┬─────────┼───────────────────┘                       │
+│                   │         │ (Sync Engine)                             │
+│          ┌────────▼─────────▼────────┐                                  │
+│          │    State (SQLite + FS)    │                                  │
+│          │  /var/lib/samnet-wg/      │                                  │
+│          │  /opt/samnet/clients/     │                                  │
+│          └────────┬──────────────────┘                                  │
+│                   │                                                     │
+│          ┌────────▼────────┐                                            │
+│          │   WireGuard     │                                            │
+│          │   Kernel Mod    │                                            │
+│          └─────────────────┘                                            │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -238,13 +238,6 @@ We believe in full system transparency. Here is exactly where SamNet-WG stores i
 |---------|-------------|
 | 🚀 **One-Line Install** | `curl -sSL ... \| bash` for instant deployment |
 | 🔄 **Auto-Update** | `samnet --update` to upgrade without reinstalling |
-
-### Coming Soon
-
-| Feature | Description |
-|---------|-------------|
-| 📊 **Usage Analytics** | Per-peer bandwidth graphs and historical data |
-| 🌍 **Multi-Server** | Manage multiple WireGuard servers from one dashboard |
 
 Stay tuned for updates!
 
