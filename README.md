@@ -48,10 +48,6 @@ Unlike standard scripts, SamNet-WG includes a **bi-directional sync engine**, en
 
 <div align="center">
 
-### 🖥️ Terminal User Interface (TUI)
-*Full-featured terminal interface for zero-latency management*
-
-![SamNet-WG TUI](samnet-wgtui.png)
 
 ---
 
