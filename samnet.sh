@@ -2,7 +2,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # SamNet-WG Unified Manager, Installer & CLI/TUI
 # Version: 1.0.3
-# Author: Sam Hesami | samnet.dev
 # License: MIT
 #
 # This is the SINGLE unified script that handles:
@@ -58,8 +57,6 @@ if [[ -f "$0" ]]; then
 fi
 
 readonly TAGLINE="WireGuard Orchestrator & Management Platform"
-readonly AUTHOR="Sam Hesami"
-readonly WEBSITE="samnet.dev"
 
 # Trap terminal Resize
 trap 'needs_refresh=true' SIGWINCH
