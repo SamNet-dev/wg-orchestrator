@@ -263,6 +263,6 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-Built with ❤️ by [Sam](https://samnet.dev)
+Built with ❤️ by [Sam]
 
 </div>
