@@ -2606,10 +2606,12 @@ EOF
             if ! command -v netfilter-persistent &>/dev/null; then
                  log_info "Installing iptables-persistent..."
                  export DEBIAN_FRONTEND=noninteractive
-                 apt-get update -qq &>/dev/null
+                 apt-get update -qq &>/dev/null || true
                  echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | debconf-set-selections
                  echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | debconf-set-selections
-                 apt-get install -y -qq iptables-persistent &>/dev/null
+                 if ! apt-get install -y -qq iptables-persistent &>/dev/null; then
+                     log_warn "iptables-persistent install failed (non-fatal) - iptables rules may not persist across reboots"
+                 fi
             fi
             
             command -v netfilter-persistent &>/dev/null && netfilter-persistent save >/dev/null 2>&1
