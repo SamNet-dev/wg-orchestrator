@@ -344,7 +344,7 @@ function App() {
 
             <footer style={{ borderTop: '1px solid var(--border-subtle)', padding: '16px', textAlign: 'center' }}>
                 <span className="text-muted text-xs">
-                    SamNet-WG v1.0.0 | <a href="https://samnet.dev" className="text-accent">samnet.dev</a>
+                    SamNet-WG v1.0.4
                 </span>
             </footer>
 

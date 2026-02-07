@@ -3824,7 +3824,6 @@ screen_about() {
         "No cloud. No tracking. Just reliability."
     
     printf "\n  ${C_BOLD}Links${C_RESET}\n"
-    printf "  ├─ Web:    ${C_CYAN}https://samnet.dev${C_RESET}\n"
     printf "  └─ GitHub: ${C_CYAN}github.com/samnet-wg${C_RESET}\n"
     printf "\n  Version: %s\n" "$VERSION"
     
